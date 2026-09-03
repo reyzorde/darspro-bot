@@ -6,8 +6,19 @@ const { Bot, Keyboard } = require("grammy");
 // SOZLAMALAR
 // ========================================
 
-const TOKEN = process.env.BOT_TOKEN;
-const ADMIN_ID = process.env.ADMIN_ID;
+const TOKEN = process.env.BOT_TOKEN?.trim();
+const ADMIN_ID = process.env.ADMIN_ID?.trim();
+
+const CARD_NUMBER = process.env.CARD_NUMBER?.trim();
+const CARD_OWNER = process.env.CARD_OWNER?.trim();
+
+const PRICE_UZS = process.env.PRICE_UZS?.trim() || "54 900";
+const PRICE_EUR = process.env.PRICE_EUR?.trim() || "4";
+
+
+// ========================================
+// .ENV TEKSHIRISH
+// ========================================
 
 if (!TOKEN) {
   console.error("❌ BOT_TOKEN topilmadi!");
@@ -21,7 +32,37 @@ if (!ADMIN_ID) {
   process.exit(1);
 }
 
+if (!CARD_NUMBER) {
+  console.error("❌ CARD_NUMBER topilmadi!");
+  console.error("👉 .env faylingizni tekshiring.");
+  process.exit(1);
+}
+
+if (!CARD_OWNER) {
+  console.error("❌ CARD_OWNER topilmadi!");
+  console.error("👉 .env faylingizni tekshiring.");
+  process.exit(1);
+}
+
+
+// ========================================
+// BOT
+// ========================================
+
 const bot = new Bot(TOKEN);
+
+
+// ========================================
+// HTML ESCAPE
+// ========================================
+
+function escapeHTML(text = "") {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 
 // ========================================
@@ -41,12 +82,13 @@ const mainKeyboard = new Keyboard()
 // ========================================
 
 bot.command("start", async (ctx) => {
-
   const firstName =
     ctx.from?.first_name || "Foydalanuvchi";
 
+  const safeFirstName = escapeHTML(firstName);
+
   await ctx.reply(
-    `👋 Assalomu alaykum, ${firstName}!
+    `👋 Assalomu alaykum, ${safeFirstName}!
 
 ` +
     `🎓 <b>DarsPro</b> xizmatiga xush kelibsiz!
@@ -67,20 +109,18 @@ bot.command("start", async (ctx) => {
 
 // ========================================
 // /ID
-// ADMIN ID NI BILISH UCHUN
 // ========================================
 
 bot.command("id", async (ctx) => {
-
   await ctx.reply(
     `🆔 Sizning Telegram ID'ingiz:
 
-<code>${ctx.from.id}</code>`,
+` +
+    `<code>${ctx.from.id}</code>`,
     {
       parse_mode: "HTML",
     }
   );
-
 });
 
 
@@ -89,7 +129,6 @@ bot.command("id", async (ctx) => {
 // ========================================
 
 bot.hears("💳 Hisob yaratish", async (ctx) => {
-
   const contactKeyboard = new Keyboard()
     .requestContact("📱 Kontaktni yuborish")
     .row()
@@ -110,7 +149,6 @@ bot.hears("💳 Hisob yaratish", async (ctx) => {
       reply_markup: contactKeyboard,
     }
   );
-
 });
 
 
@@ -119,8 +157,41 @@ bot.hears("💳 Hisob yaratish", async (ctx) => {
 // ========================================
 
 bot.on("message:contact", async (ctx) => {
-
   const contact = ctx.message.contact;
+
+  // ======================================
+  // FAQAT O'Z KONTAKTINI QABUL QILISH
+  // ======================================
+
+  if (
+    contact.user_id &&
+    contact.user_id !== ctx.from.id
+  ) {
+    await ctx.reply(
+      `❌ <b>Noto‘g‘ri kontakt!</b>
+
+` +
+      `Iltimos, boshqa odamning kontaktini emas, ` +
+      `o‘zingizning telefon raqamingizni yuboring.`,
+      {
+        parse_mode: "HTML",
+        reply_markup: mainKeyboard,
+      }
+    );
+
+    console.log(
+      `⚠️ BOSHQA KONTAKT | ` +
+      `User ID: ${ctx.from.id} | ` +
+      `Contact User ID: ${contact.user_id}`
+    );
+
+    return;
+  }
+
+
+  // ======================================
+  // FOYDALANUVCHI MA'LUMOTLARI
+  // ======================================
 
   const phone = contact.phone_number;
 
@@ -129,12 +200,6 @@ bot.on("message:contact", async (ctx) => {
     ctx.from?.first_name ||
     "Foydalanuvchi";
 
-  const telegramId = ctx.from.id;
-
-  const username = ctx.from.username
-    ? `@${ctx.from.username}`
-    : "username mavjud emas";
-
   const lastName =
     contact.last_name ||
     ctx.from?.last_name ||
@@ -142,6 +207,12 @@ bot.on("message:contact", async (ctx) => {
 
   const fullName =
     `${firstName} ${lastName}`.trim();
+
+  const telegramId = ctx.from.id;
+
+  const username = ctx.from.username
+    ? `@${ctx.from.username}`
+    : "username mavjud emas";
 
   const currentTime = new Date().toLocaleString(
     "uz-UZ",
@@ -152,7 +223,7 @@ bot.on("message:contact", async (ctx) => {
 
 
   // ======================================
-  // TERMINALGA CHIQARISH
+  // TERMINAL
   // ======================================
 
   console.log("");
@@ -169,11 +240,20 @@ bot.on("message:contact", async (ctx) => {
 
 
   // ======================================
-  // ADMIN'GA YUBORISH
+  // HTML ESCAPE
+  // ======================================
+
+  const safeFullName = escapeHTML(fullName);
+  const safePhone = escapeHTML(phone);
+  const safeUsername = escapeHTML(username);
+  const safeTime = escapeHTML(currentTime);
+
+
+  // ======================================
+  // ADMIN'GA XABAR
   // ======================================
 
   try {
-
     await bot.api.sendMessage(
       ADMIN_ID,
 
@@ -183,13 +263,13 @@ bot.on("message:contact", async (ctx) => {
 
       `👤 <b>F.I.O:</b>
 ` +
-      `${fullName}
+      `${safeFullName}
 
 ` +
 
       `📱 <b>Telefon:</b>
 ` +
-      `<code>${phone}</code>
+      `<code>${safePhone}</code>
 
 ` +
 
@@ -201,13 +281,13 @@ bot.on("message:contact", async (ctx) => {
 
       `🔹 <b>Username:</b>
 ` +
-      `${username}
+      `${safeUsername}
 
 ` +
 
       `⏰ <b>Vaqt:</b>
 ` +
-      `${currentTime}
+      `${safeTime}
 
 ` +
 
@@ -225,12 +305,10 @@ bot.on("message:contact", async (ctx) => {
     console.log("✅ Ma'lumot admin'ga yuborildi.");
 
   } catch (error) {
-
     console.error(
       "❌ Admin'ga yuborishda xato:",
       error.message
     );
-
   }
 
 
@@ -239,16 +317,15 @@ bot.on("message:contact", async (ctx) => {
   // ======================================
 
   try {
-
     await ctx.reply(
 
       `✅ <b>Kontakt muvaffaqiyatli qabul qilindi!</b>
 
 ` +
 
-      `👤 Ism: ${fullName}
+      `👤 Ism: ${safeFullName}
 ` +
-      `📱 Telefon: ${phone}
+      `📱 Telefon: ${safePhone}
 
 ` +
 
@@ -262,13 +339,13 @@ bot.on("message:contact", async (ctx) => {
 
       `💳 Karta raqami:
 ` +
-      `<code>9860 1766 2131 5389</code>
+      `<code>${escapeHTML(CARD_NUMBER)}</code>
 
 ` +
 
       `👤 Qabul qiluvchi:
 ` +
-      `<b>G'.S</b>
+      `<b>${escapeHTML(CARD_OWNER)}</b>
 
 ` +
 
@@ -276,28 +353,32 @@ bot.on("message:contact", async (ctx) => {
 
 ` +
 
-      `💰 To‘lovni amalga oshirgach, administrator bilan bog‘laning.
-      U sizga login va parolni beradi.
+      `💰 <b>To‘lov summasi:</b>
+` +
+      `${escapeHTML(PRICE_UZS)} so‘m yoki ${escapeHTML(PRICE_EUR)} yevro.
 
-` + `To'lov summasi 54 900 so'm yoki 4yevro.
-`+ `⚠️ Karta ma'lumotlarini diqqat bilan tekshiring.`,
+` +
+
+      `To‘lovni amalga oshirgach, administrator bilan bog‘laning.
+` +
+      `U sizga login va parolni beradi.
+
+` +
+
+      `⚠️ Karta ma'lumotlarini diqqat bilan tekshiring.`,
 
       {
         parse_mode: "HTML",
         reply_markup: mainKeyboard,
       }
-
     );
 
   } catch (error) {
-
     console.error(
       "❌ Foydalanuvchiga xabar yuborishda xato:",
       error.message
     );
-
   }
-
 });
 
 
@@ -306,9 +387,23 @@ bot.on("message:contact", async (ctx) => {
 // ========================================
 
 bot.hears("🆘 Yordam markazi", async (ctx) => {
+  const firstName =
+    ctx.from?.first_name || "Foydalanuvchi";
+
+  const username = ctx.from.username
+    ? `@${ctx.from.username}`
+    : "username mavjud emas";
+
+  const telegramId = ctx.from.id;
+
+  const safeFirstName = escapeHTML(firstName);
+  const safeUsername = escapeHTML(username);
+
+  // ======================================
+  // FOYDALANUVCHIGA
+  // ======================================
 
   await ctx.reply(
-
     `🆘 <b>YORDAM MARKAZI</b>
 
 ` +
@@ -322,14 +417,60 @@ bot.hears("🆘 Yordam markazi", async (ctx) => {
 ` +
 
     `Iltimos, biroz kuting. Rahmat! 🙏`,
-
     {
       parse_mode: "HTML",
       reply_markup: mainKeyboard,
     }
-
   );
 
+
+  // ======================================
+  // ADMIN'GA
+  // ======================================
+
+  try {
+    await bot.api.sendMessage(
+      ADMIN_ID,
+
+      `🆘 <b>YORDAM SO‘ROVI</b>
+
+` +
+
+      `👤 <b>Ism:</b>
+` +
+      `${safeFirstName}
+
+` +
+
+      `🆔 <b>Telegram ID:</b>
+` +
+      `<code>${telegramId}</code>
+
+` +
+
+      `🔹 <b>Username:</b>
+` +
+      `${safeUsername}
+
+` +
+
+      `📞 Foydalanuvchi yordam so‘radi.`,
+
+      {
+        parse_mode: "HTML",
+      }
+    );
+
+    console.log(
+      `✅ Yordam so‘rovi admin'ga yuborildi | ID: ${telegramId}`
+    );
+
+  } catch (error) {
+    console.error(
+      "❌ Yordam so‘rovini admin'ga yuborishda xato:",
+      error.message
+    );
+  }
 });
 
 
@@ -338,21 +479,16 @@ bot.hears("🆘 Yordam markazi", async (ctx) => {
 // ========================================
 
 bot.hears("⬅️ Orqaga", async (ctx) => {
-
   await ctx.reply(
-
     `🏠 <b>ASOSIY MENYU</b>
 
 ` +
     `Kerakli bo‘limni tanlang 👇`,
-
     {
       parse_mode: "HTML",
       reply_markup: mainKeyboard,
     }
-
   );
-
 });
 
 
@@ -361,7 +497,6 @@ bot.hears("⬅️ Orqaga", async (ctx) => {
 // ========================================
 
 bot.on("message:text", async (ctx) => {
-
   const text = ctx.message.text;
 
   // Komandalar
@@ -379,19 +514,15 @@ bot.on("message:text", async (ctx) => {
   }
 
   await ctx.reply(
-
     `🤔 <b>Tushunmadim.</b>
 
 ` +
     `Iltimos, quyidagi menyudan foydalaning 👇`,
-
     {
       parse_mode: "HTML",
       reply_markup: mainKeyboard,
     }
-
   );
-
 });
 
 
@@ -399,15 +530,30 @@ bot.on("message:text", async (ctx) => {
 // BOT XATOLARINI USHLASH
 // ========================================
 
-bot.catch((error) => {
-
+bot.catch((err) => {
+  console.error("");
+  console.error("========================================");
+  console.error("❌ BOT XATOSI");
+  console.error("========================================");
+  console.error(err.error);
+  console.error("========================================");
+  console.error("");
 });
 
 
+// ========================================
+// BOTNI ISHGA TUSHIRISH
+// ========================================
 
 bot.start({
-
   onStart: (botInfo) => {
+    console.log("");
+    console.log("========================================");
+    console.log("🤖 DarsPro BOT ISHGA TUSHDI");
+    console.log("========================================");
+    console.log(`📱 Username: @${botInfo.username}`);
+    console.log(`🆔 Bot ID: ${botInfo.id}`);
+    console.log("========================================");
+    console.log("");
   },
-
 });

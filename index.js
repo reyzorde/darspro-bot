@@ -279,9 +279,8 @@ bot.on("message:contact", async (ctx) => {
       `💰 To‘lovni amalga oshirgach, administrator bilan bog‘laning.
       U sizga login va parolni beradi.
 
-` +
-
-      `⚠️ Karta ma'lumotlarini diqqat bilan tekshiring.`,
+` + `To'lov summasi 54 900 so'm yoki 4yevro.
+`+ `⚠️ Karta ma'lumotlarini diqqat bilan tekshiring.`,
 
       {
         parse_mode: "HTML",
